@@ -4,6 +4,7 @@ import './globals.css'
 import ThemeProvider from '@/components/providers/theme-provider'
 import MainSidebar from '@/components/MainSidebar'
 import {SidebarProvider, SidebarTrigger} from '@/components/ui/sidebar'
+import {cookies} from 'next/headers'
 
 const geistSans = Geist({
 	variable: '--font-geist-sans',
@@ -20,32 +21,41 @@ export const metadata: Metadata = {
 	description: 'Generate beautiful PR descriptions with AI'
 }
 
-const RootLayout = ({
+const RootLayout = async ({
 	children
 }: Readonly<{
   children: React.ReactNode;
-}>) => (
-	<html lang="en" suppressHydrationWarning>
-		<body
-			className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-		>
-			<ThemeProvider
-				attribute="class"
-				defaultTheme="system"
-				enableSystem
-				disableTransitionOnChange
+}>) => {
+	const cookieStore = await cookies()
+	const token = cookieStore.get('linear_access_token')
+
+	return (
+		<html lang="en" suppressHydrationWarning>
+			<body
+				className={`${geistSans.variable} ${geistMono.variable} antialiased`}
 			>
-				<SidebarProvider>
-					<MainSidebar />
-					<main className="bg-sidebar w-full p-1.5">
-						<div className="h-full w-full bg-background rounded-lg p-4 overflow-y-auto">
-							{/* <SidebarTrigger />*/}
-							{children}
-						</div>
-					</main>
-				</SidebarProvider>
-			</ThemeProvider>
-		</body>
-	</html>
-)
+				<ThemeProvider
+					attribute="class"
+					defaultTheme="system"
+					enableSystem
+					disableTransitionOnChange
+				>
+					{token ? (
+						<SidebarProvider>
+							<MainSidebar />
+							<main className="bg-sidebar w-full p-1.5">
+								<div className="h-full w-full bg-background rounded-lg p-4 overflow-y-auto">
+									{/* <SidebarTrigger />*/}
+									{children}
+								</div>
+							</main>
+						</SidebarProvider>
+					) : (
+						children
+					)}
+				</ThemeProvider>
+			</body>
+		</html>
+	)
+}
 export default RootLayout
