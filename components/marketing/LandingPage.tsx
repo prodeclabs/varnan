@@ -14,7 +14,11 @@ export const metadata: Metadata = {
 	}
 }
 
-const LandingPage = () => {
+type LandingPageProps = {
+	isAuthenticated: boolean
+}
+
+const LandingPage = ({isAuthenticated}: LandingPageProps) => {
 	return (
 		<div className="min-h-screen bg-[#030014] text-white relative overflow-hidden">
 			{/* Enhanced Background Gradients */}
@@ -63,18 +67,37 @@ const LandingPage = () => {
 					<div className="flex items-center justify-between">
 						<div className="text-xl font-semibold">Varnan</div>
 						<div className="flex items-center gap-6">
-							<Link
-								href="#"
-								className="text-sm text-neutral-400 hover:text-white transition-colors"
-							>
-								Sign in
-							</Link>
-							<Button asChild>
-								<Link href="https://varnan.site">
-									Try Varnan Free
-									<ArrowRight className="ml-2 h-4 w-4" />
-								</Link>
-							</Button>
+							{isAuthenticated ? (
+								<>
+									{/* <Link
+										href="/"
+										className="text-sm text-neutral-400 hover:text-white transition-colors"
+									>
+										Dashboard
+									</Link> */}
+									<Button asChild>
+										<Link href="/">
+											Go to Dashboard
+											<ArrowRight className="ml-2 h-4 w-4" />
+										</Link>
+									</Button>
+								</>
+							) : (
+								<>
+									<Link
+										href="/login"
+										className="text-sm text-neutral-400 hover:text-white transition-colors"
+									>
+										Sign in
+									</Link>
+									<Button asChild>
+										<Link href="/login">
+											Try Varnan Free
+											<ArrowRight className="ml-2 h-4 w-4" />
+										</Link>
+									</Button>
+								</>
+							)}
 						</div>
 					</div>
 				</nav>

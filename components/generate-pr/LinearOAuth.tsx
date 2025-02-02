@@ -20,6 +20,9 @@ export const LinearOAuth = () => {
 						</p>
 					</div>
 					<LinearConnectButton />
+					<p className="text-xs text-center text-neutral-400">
+						By connecting, you agree to our Terms of Service and Privacy Policy
+					</p>
 				</div>
 			</div>
 		</div>
