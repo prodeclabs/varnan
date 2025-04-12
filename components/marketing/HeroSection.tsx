@@ -185,7 +185,25 @@ const DemoTerminal = () => {
 
 export const HeroSection = () => {
 	return (
-		<section className="pt-32 pb-20 relative">
+		<section className="pt-32 pb-20 relative isolate">
+			{/* Background layers */}
+			<div className="absolute inset-0 -z-10">
+				{/* Base dark layer with red tint */}
+				<div className="absolute inset-0 bg-[#1a0808]" />
+				
+				{/* Double noise layer for more density */}
+				<div className="absolute inset-0 noise-pattern opacity-[0.8]" />
+				<div className="absolute inset-0 noise-pattern-fine opacity-[0.3]" />
+				
+				{/* Rich gradient overlay */}
+				<div className="absolute inset-0 bg-gradient-to-b from-red-950/30 via-neutral-950/20 to-neutral-950/40" />
+				
+				{/* Ambient light effects */}
+				<div className="absolute -left-1/2 top-0 h-[500px] w-[500px] rounded-full bg-red-900/20 blur-[120px]" />
+				<div className="absolute -right-1/2 bottom-0 h-[500px] w-[500px] rounded-full bg-neutral-900/30 blur-[120px]" />
+			</div>
+
+			{/* Rest of your existing content */}
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 				<div className="grid lg:grid-cols-[0.8fr,1.2fr] gap-12 items-start">
 					{/* Left Column - Content */}
@@ -200,7 +218,7 @@ export const HeroSection = () => {
 								Generate PR Descriptions
 								<br />
 								<motion.span
-									className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-white to-white"
+									className="text-white bg-clip-text"
 								>
 									Automatically
 								</motion.span>
@@ -273,16 +291,6 @@ export const HeroSection = () => {
 					</div>
 				</div>
 			</div>
-
-			{/* Gradient border */}
-			<motion.div
-				className="absolute bottom-0 left-0 right-0 h-px"
-				initial={{opacity: 0}}
-				animate={{opacity: 1}}
-				transition={{delay: 4.0, duration: 0.5}}
-			>
-				<div className="h-full bg-gradient-to-r from-transparent via-neutral-700/50 to-transparent" />
-			</motion.div>
 		</section>
 	)
 }
