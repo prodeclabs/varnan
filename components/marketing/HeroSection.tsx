@@ -190,14 +190,14 @@ export const HeroSection = () => {
 			<div className="absolute inset-0 -z-10">
 				{/* Base dark layer with red tint */}
 				<div className="absolute inset-0 bg-[#1a0808]" />
-				
+
 				{/* Double noise layer for more density */}
 				<div className="absolute inset-0 noise-pattern opacity-[0.8]" />
 				<div className="absolute inset-0 noise-pattern-fine opacity-[0.3]" />
-				
+
 				{/* Rich gradient overlay */}
 				<div className="absolute inset-0 bg-gradient-to-b from-red-950/30 via-neutral-950/20 to-neutral-950/40" />
-				
+
 				{/* Ambient light effects */}
 				<div className="absolute -left-1/2 top-0 h-[500px] w-[500px] rounded-full bg-red-900/20 blur-[120px]" />
 				<div className="absolute -right-1/2 bottom-0 h-[500px] w-[500px] rounded-full bg-neutral-900/30 blur-[120px]" />

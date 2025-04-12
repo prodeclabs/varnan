@@ -24,7 +24,7 @@ const LandingPage = ({isAuthenticated}: LandingPageProps) => {
 			{/* Enhanced Background Gradients */}
 			{/* <div className="absolute inset-0 z-0">
 				{/* Main gradient orbs */}
-				{/* <div
+			{/* <div
 					className="absolute top-[-6%] right-[11%] h-[600px] w-[600px] rounded-full
 					bg-gradient-to-r from-indigo-500 to-blue-600 blur-[120px] opacity-20"
 				/>
@@ -38,7 +38,7 @@ const LandingPage = ({isAuthenticated}: LandingPageProps) => {
 				/>
 
 				{/* Additional accent gradients */}
-				{/* <div
+			{/* <div
 					className="absolute top-[20%] left-[15%] h-[400px] w-[400px] rounded-full
 					bg-gradient-to-r from-emerald-500 to-green-300 blur-[120px] opacity-10"
 				/>
@@ -48,13 +48,13 @@ const LandingPage = ({isAuthenticated}: LandingPageProps) => {
 				/>
 
 				{/* Radial gradient overlay for depth */}
-				{/* <div
+			{/* <div
 					className="absolute inset-0 bg-gradient-radial from-transparent
 					via-[#030014] to-[#030014] opacity-80"
 				/> */}
 
-				{/* Grain texture overlay */}
-				{/* <div
+			{/* Grain texture overlay */}
+			{/* <div
 					className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.03]
 					mix-blend-soft-light pointer-events-none"
 				/> */}
