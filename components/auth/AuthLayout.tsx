@@ -15,6 +15,7 @@ const AuthLayout = ({children, isAuthenticated}: AuthLayoutProps) => {
 	const pathname = usePathname()
 	const isHomePage = pathname === '/'
 	const isMarketingPage = pathname === '/homepage'
+	const isOnboardingPage = pathname === '/onboarding'
 
 	if (isMarketingPage) {
 		return <LandingPage isAuthenticated={isAuthenticated} />
@@ -26,6 +27,10 @@ const AuthLayout = ({children, isAuthenticated}: AuthLayoutProps) => {
 		}
 
 		return children
+	}
+
+	if (isOnboardingPage) {
+		return <>{children}</>
 	}
 
 	return (

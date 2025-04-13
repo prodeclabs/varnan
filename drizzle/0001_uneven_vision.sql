@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "profession" varchar(255);

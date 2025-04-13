@@ -4,9 +4,11 @@ import type {NextRequest} from 'next/server'
 export function middleware(request: NextRequest) {
   const token = request.cookies.get('linear_access_token')
   const isAuthPage = request.nextUrl.pathname === '/login'
+  const isOnboardingPage = request.nextUrl.pathname === '/onboarding'
   const isPublicPage = [
     '/',
     '/login',
+    '/onboarding',
     '/homepage',
     // Add other public routes here
   ].includes(request.nextUrl.pathname)
