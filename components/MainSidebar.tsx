@@ -5,9 +5,10 @@ import {
 	SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
 	SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarRail, SidebarSeparator
 } from '@/components/ui/sidebar'
-import {GitPullRequest, FileText, Settings} from 'lucide-react'
+import {GitPullRequest, FileText, Settings, Github} from 'lucide-react'
 import Link from 'next/link'
 import WorkspaceSwitcher from '@/components/linear/WorkspaceSwitcher'
+import GitHubSidebarLink from '@/components/github/GitHubSidebarLink'
 
 const items = [
 	{
@@ -53,13 +54,16 @@ const MainSidebar = () => (
 						{items.map((item) => (
 							<SidebarMenuItem key={item.title}>
 								<SidebarMenuButton asChild>
-									<Link href={item.url}>
+									<Link prefetch={true} href={item.url}>
 										<item.icon className="h-4 w-4" />
 										<span>{item.title}</span>
 									</Link>
 								</SidebarMenuButton>
 							</SidebarMenuItem>
 						))}
+						<SidebarMenuItem>
+							<GitHubSidebarLink />
+						</SidebarMenuItem>
 					</SidebarMenu>
 				</SidebarGroupContent>
 			</SidebarGroup>
@@ -69,7 +73,7 @@ const MainSidebar = () => (
 			<SidebarMenu>
 				<SidebarMenuItem>
 					<SidebarMenuButton asChild>
-						<Link href="/settings">
+						<Link prefetch={true} href="/settings">
 							<Settings className="h-4 w-4" />
 							<span>Settings</span>
 						</Link>

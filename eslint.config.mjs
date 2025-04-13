@@ -37,20 +37,6 @@ export default [...compat.extends('next/core-web-vitals'), {
 		'react/no-unescaped-entities': 'off',
 		'react/display-name': 'off',
 
-		'prefer-arrow/prefer-arrow-functions': ['error', {
-			disallowPrototype: true,
-			singleReturnOnly: false,
-			classPropertiesAllowed: false
-		}],
-
-		'prefer-arrow-callback': ['error', {
-			allowNamedFunctions: true
-		}],
-
-		'func-style': ['error', 'expression', {
-			allowArrowFunctions: true
-		}],
-
 		'@stylistic/js/indent': ['error', 'tab'],
 		'@stylistic/js/eol-last': ['error', 'always'],
 

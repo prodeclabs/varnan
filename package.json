@@ -55,5 +55,6 @@
   "overrides": {
     "@types/react": "19.1.1",
     "@types/react-dom": "19.1.2"
-  }
+  },
+  "packageManager": "yarn@3.5.1+sha256.64c0b63e5fa0e21f354b5eff7c9a1b486f32046bfc3283670569e3c6a9cad102"
 }
