@@ -20,6 +20,38 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Database Setup
+
+This project uses [Drizzle ORM](https://orm.drizzle.team/) with [Neon Database](https://neon.tech/) (PostgreSQL).
+
+### Environment Variables
+
+Make sure to set up your database connection in `.env.local`:
+
+```
+DATABASE_URL=postgresql://user:password@host:port/database?sslmode=require
+```
+
+### Database Migrations
+
+To generate migrations:
+
+```bash
+bun run db:generate
+```
+
+To apply migrations to the database:
+
+```bash
+bun run db:migrate
+```
+
+To view your database with Drizzle Studio:
+
+```bash
+bun run db:studio
+```
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

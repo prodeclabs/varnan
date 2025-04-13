@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1744545202280,
+      "tag": "0000_chilly_the_hand",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1744546220235,
+      "tag": "0001_uneven_vision",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1744547337775,
+      "tag": "0002_dear_namora",
+      "breakpoints": true
+    }
+  ]
+}

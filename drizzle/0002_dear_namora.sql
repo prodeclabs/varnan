@@ -1,0 +1,1 @@
+ALTER TABLE "users" DROP CONSTRAINT "users_linear_id_unique";
