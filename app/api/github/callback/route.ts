@@ -82,4 +82,4 @@ export async function GET(request: NextRequest) {
 		// Redirect to error page
 		return NextResponse.redirect(new URL(`/github?error=${encodeURIComponent(error instanceof Error ? error.message : 'Unknown error')}`, request.url))
 	}
-}
+} 

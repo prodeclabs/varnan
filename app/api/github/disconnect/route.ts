@@ -2,7 +2,7 @@ import {cookies} from 'next/headers'
 import {NextResponse} from 'next/server'
 
 export async function POST() {
-	const cookieStore = cookies()
+	const cookieStore = await cookies()
 
 	// Delete the GitHub access token cookie
 	cookieStore.delete('github_access_token')

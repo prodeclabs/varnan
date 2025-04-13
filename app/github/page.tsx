@@ -1,11 +1,12 @@
 import {initiateGitHubOAuth} from './actions'
 
-export default function GitHubPage({
+export default async function GitHubPage({
 	searchParams
 }: {
-  searchParams: { error?: string }
+  searchParams: Promise<{ error?: string }>
 }) {
-	const {error} = searchParams
+	const resolvedParams = await searchParams
+	const {error} = resolvedParams
 
 	return (
 		<div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)]">

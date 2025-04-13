@@ -27,7 +27,7 @@ export async function initiateGitHubOAuth() {
 	// GitHub OAuth authorization URL
 	const githubAuthUrl = new URL('https://github.com/login/oauth/authorize')
 	githubAuthUrl.searchParams.append('client_id', clientId)
-	githubAuthUrl.searchParams.append('redirect_uri', `${process.env.NEXT_PUBLIC_APP_URL}/github/callback`)
+	githubAuthUrl.searchParams.append('redirect_uri', `${process.env.NEXT_PUBLIC_APP_URL}/api/github/callback`)
 	githubAuthUrl.searchParams.append('state', state)
 	githubAuthUrl.searchParams.append('scope', 'repo')
 
