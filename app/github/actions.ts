@@ -30,6 +30,7 @@ export async function initiateGitHubOAuth() {
 	githubAuthUrl.searchParams.append('redirect_uri', `${process.env.NEXT_PUBLIC_APP_URL}/api/github/callback`)
 	githubAuthUrl.searchParams.append('state', state)
 	githubAuthUrl.searchParams.append('scope', 'repo')
+	githubAuthUrl.searchParams.append('prompt', 'consent')
 
 	// Redirect to GitHub authorization page
 	redirect(githubAuthUrl.toString())
