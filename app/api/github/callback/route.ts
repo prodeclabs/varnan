@@ -74,8 +74,8 @@ export async function GET(request: NextRequest) {
 		// Fetch user repositories for demo purposes (this will be logged server-side)
 		const repos = await fetchUserRepos(tokenResponse.access_token)
 
-		// Redirect back to the main page with a success parameter
-		return NextResponse.redirect(new URL('/?github_connected=true', request.url))
+		// Redirect to the GitHub status page instead of the home page
+		return NextResponse.redirect(new URL('/github/status', request.url))
 	} catch (error) {
 		// console.error('GitHub OAuth Error:', error)
 

@@ -9,12 +9,12 @@ export default async function GitHubPage({
 	const {error} = resolvedParams
 
 	return (
-		<div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)]">
-			<h1 className="text-2xl font-bold">Connect to GitHub</h1>
-			<p className="text-gray-500 mt-2">Authenticate with GitHub to get started</p>
+		<div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] bg-neutral-900">
+			<h1 className="text-2xl font-bold text-neutral-100">Connect to GitHub</h1>
+			<p className="text-neutral-400 mt-2">Authenticate with GitHub to get started</p>
 
 			{error && (
-				<div className="mt-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-md">
+				<div className="mt-4 p-4 bg-red-900/30 border border-red-800 text-red-300 rounded-md">
 					<h3 className="font-semibold">Error connecting to GitHub</h3>
 					<p className="text-sm mt-1">{decodeURIComponent(error)}</p>
 				</div>
@@ -23,7 +23,7 @@ export default async function GitHubPage({
 			<form action={initiateGitHubOAuth} className="mt-4">
 				<button
 					type="submit"
-					className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 transition-colors flex items-center gap-2"
+					className="px-4 py-2 bg-neutral-800 text-neutral-100 rounded-md hover:bg-neutral-700 transition-colors flex items-center gap-2"
 				>
 					<svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
 						<path

@@ -33,7 +33,7 @@ export function DisconnectButton() {
 		<button
 			onClick={handleDisconnect}
 			disabled={isDisconnecting}
-			className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+			className="px-4 py-2 bg-red-900 text-red-100 rounded-md hover:bg-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-red-800"
 		>
 			{isDisconnecting ? 'Disconnecting...' : 'Disconnect GitHub'}
 		</button>
