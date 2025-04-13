@@ -1,13 +1,35 @@
 'use client'
 
-import {useState} from 'react'
-import {GitPullRequest, Filter} from 'lucide-react'
+import {useState, useEffect} from 'react'
+import {GitPullRequest, Filter, Github, Code, Loader2, GitBranch} from 'lucide-react'
 import {SiLinear} from 'react-icons/si'
 import {Button} from '@/components/ui/button'
 import useLinearClient from '@/hooks/useLinearClient'
 import IssueSelect from '@/components/generate-pr/IssueSelect'
 import {CustomInstructionsDialog} from '@/components/generate-pr/CustomInstructionsDialog'
 import {PRDescription} from '@/components/generate-pr/PRDescription'
+import {BranchSelectionModal} from '@/components/generate-pr/BranchSelectionModal'
+
+type DiffStatus = 'loading' | 'fetching' | 'success' | 'error' | 'not-found' | 'custom' | null;
+
+type DiffData = {
+	repository: string;
+	sourceBranch: string;
+	targetBranch: string;
+	files: Array<{
+		filename: string;
+		status: string;
+		additions: number;
+		deletions: number;
+		patch?: string;
+	}>;
+	totalChanges: {
+		commits: number;
+		additions: number;
+		deletions: number;
+		changedFiles: number;
+	};
+};
 
 const PRGenerator = () => {
 	const {issues, isLoading, error: linearError} = useLinearClient()
@@ -16,13 +38,100 @@ const PRGenerator = () => {
 	const [completion, setCompletion] = useState<string | null>(null)
 	const [generationError, setGenerationError] = useState<string | null>(null)
 	const [customInstructions, setCustomInstructions] = useState('')
+	const [hasDiffData, setHasDiffData] = useState(false)
+	const [diffStatus, setDiffStatus] = useState<DiffStatus>(null)
+	const [diffData, setDiffData] = useState<DiffData | null>(null)
+	const [githubConnected, setGithubConnected] = useState(false)
+	const [isCustomBranchModalOpen, setIsCustomBranchModalOpen] = useState(false)
+	const [customBranchLoading, setCustomBranchLoading] = useState(false)
+	const [previousDiffStatus, setPreviousDiffStatus] = useState<DiffStatus>(null)
 
 	const selectedIssue = issues.find(issue => issue.id === selectedIssueId)
+
+	// Check if GitHub token exists to know if we can fetch code diff
+	useEffect(() => {
+		const checkGitHubAuth = async () => {
+			try {
+				const response = await fetch('/api/github/status', {
+					method: 'GET',
+					headers: {
+						'Content-Type': 'application/json'
+					}
+				})
+				setGithubConnected(response.ok)
+			} catch (error) {
+				setGithubConnected(false)
+			}
+		}
+
+		checkGitHubAuth()
+	}, [])
+
+	// Fetch diff data when an issue is selected
+	useEffect(() => {
+		// Reset states when issue changes
+		setDiffStatus(null)
+		setPreviousDiffStatus(null)
+		setDiffData(null)
+		setHasDiffData(false)
+
+		if (!selectedIssue || !githubConnected) return
+
+		const fetchDiffData = async () => {
+			setDiffStatus('fetching')
+
+			try {
+				const response = await fetch('/api/github/branch-diff', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						issueIdentifier: selectedIssue.identifier,
+						issueTitle: selectedIssue.title,
+						issueDescription: selectedIssue.description
+					})
+				})
+
+				if (response.status === 404) {
+					// Branch not found for this issue
+					setDiffStatus('not-found')
+					setHasDiffData(false)
+					return
+				}
+
+				if (!response.ok) {
+					throw new Error('Failed to fetch diff data')
+				}
+
+				const data = await response.json()
+				setDiffData(data)
+
+				// Check if we have actual diffs in the files
+				const hasDiffs = data.files.some((file: any) => file.patch)
+				setHasDiffData(hasDiffs)
+				setDiffStatus('success')
+			} catch (error) {
+				// console.error('Error fetching diff:', error)
+				setDiffStatus('error')
+				setHasDiffData(false)
+			}
+		}
+
+		fetchDiffData()
+	}, [selectedIssue, githubConnected])
 
 	const handleGeneratePR = async () => {
 		if (!selectedIssue) return
 		setIsGenerating(true)
 		setGenerationError(null)
+
+		// Only set to loading if we have a diff status that provides data
+		if (diffStatus === 'success' || diffStatus === 'custom') {
+			setPreviousDiffStatus(diffStatus)
+			setDiffStatus('loading')
+		}
+
 		try {
 			const response = await fetch('/api/generate', {
 				method: 'POST',
@@ -31,7 +140,9 @@ const PRGenerator = () => {
 				},
 				body: JSON.stringify({
 					issue: selectedIssue,
-					customInstructions: customInstructions.trim()
+					customInstructions: customInstructions.trim(),
+					// Pass the already fetched diff data if available
+					diffData: diffData && hasDiffData ? diffData : undefined
 				})
 			})
 
@@ -41,13 +152,103 @@ const PRGenerator = () => {
 				throw new Error(data.error || 'Failed to generate PR description')
 			}
 
+			// Check if the diff data was used based on the response
+			if (data.usedDiff) {
+				// Preserve the custom status if it was custom before
+				setDiffStatus(previousDiffStatus === 'custom' ? 'custom' : 'success')
+			} else {
+				// If it wasn't used, revert to previous status
+				setDiffStatus(diffStatus === 'loading' ? previousDiffStatus : diffStatus)
+			}
+
 			setCompletion(data.text)
 		} catch (err) {
 			setGenerationError(err instanceof Error ? err.message : 'Something went wrong')
+
+			// Revert back to previous state if we were loading
+			if (diffStatus === 'loading') {
+				setDiffStatus(previousDiffStatus || null)
+			}
 		} finally {
 			setIsGenerating(false)
 		}
 	}
+
+	const handleSelectCustomBranches = async (sourceBranch: string, targetBranch: string, repository: string) => {
+		if (!selectedIssue) return
+
+		setCustomBranchLoading(true)
+
+		if (!repository) {
+			/*
+			 * console.warn('No repository provided, attempting to use fallback')
+			 * If no repository provided, fallback to current repository or fetch one
+			 */
+			if (diffData?.repository) {
+				repository = diffData.repository
+			} else {
+				try {
+					// Try to get the first repository as fallback
+					const reposResponse = await fetch('/api/github/repositories')
+
+					if (!reposResponse.ok) {
+						throw new Error('Failed to fetch repositories')
+					}
+
+					const repos = await reposResponse.json()
+
+					if (repos.length > 0) {
+						repository = repos[0].full_name
+					} else {
+						throw new Error('No repositories found')
+					}
+				} catch (error) {
+					// console.error('Error getting repository:', error)
+					setDiffStatus('error')
+					setHasDiffData(false)
+					setCustomBranchLoading(false)
+					return
+				}
+			}
+		}
+
+		try {
+			const response = await fetch('/api/github/custom-diff', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					repository,
+					sourceBranch,
+					targetBranch
+				})
+			})
+
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}))
+				// console.error('Custom diff API error:', response.status, errorData)
+				throw new Error(`Failed to fetch custom branch diff: ${response.status} ${errorData.error || ''}`)
+			}
+
+			const data = await response.json()
+			setDiffData(data)
+
+			// Check if we have actual diffs in the files
+			const hasDiffs = data.files.some((file: any) => file.patch)
+			setHasDiffData(hasDiffs)
+			setDiffStatus('custom')
+		} catch (error) {
+			// console.error('Error fetching custom diff:', error)
+			setDiffStatus('error')
+			setHasDiffData(false)
+		} finally {
+			setCustomBranchLoading(false)
+		}
+	}
+
+	// Determine if the generate button should be disabled
+	const isGenerateButtonDisabled = !selectedIssueId || isGenerating || diffStatus === 'fetching' || customBranchLoading
 
 	return (
 		<div className="space-y-3">
@@ -79,6 +280,78 @@ const PRGenerator = () => {
 							error={linearError}
 							onSelect={setSelectedIssueId}
 						/>
+
+						{selectedIssue && (
+							<div className="mt-2 flex items-center gap-1.5">
+								{diffStatus === 'fetching' || customBranchLoading ? (
+									<>
+										<Loader2 className="h-3 w-3 text-neutral-500 animate-spin" />
+										<span className="text-xs text-neutral-500 dark:text-neutral-400">
+											{customBranchLoading ? 'Fetching custom branch diff...' : 'Checking for GitHub branch...'}
+										</span>
+									</>
+								) : diffStatus === 'success' ? (
+									<>
+										<Github className="h-3 w-3 text-green-500" />
+										<span className="text-xs text-green-500 dark:text-green-400">
+											Found branch: {diffData?.sourceBranch}
+										</span>
+										<button
+											onClick={() => setIsCustomBranchModalOpen(true)}
+											className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 ml-1 underline"
+										>
+											Custom
+										</button>
+									</>
+								) : diffStatus === 'custom' ? (
+									<>
+										<GitBranch className="h-3 w-3 text-blue-500" />
+										<span className="text-xs text-blue-500 dark:text-blue-400">
+											Using custom: {diffData?.sourceBranch} → {diffData?.targetBranch}
+										</span>
+										<button
+											onClick={() => setIsCustomBranchModalOpen(true)}
+											className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 ml-1 underline"
+										>
+											Change
+										</button>
+									</>
+								) : diffStatus === 'not-found' ? (
+									<>
+										<Github className="h-3 w-3 text-neutral-500" />
+										<span className="text-xs text-neutral-500 dark:text-neutral-400">
+											No matching GitHub branch found
+										</span>
+										<button
+											onClick={() => setIsCustomBranchModalOpen(true)}
+											className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 ml-1 underline"
+										>
+											Custom
+										</button>
+									</>
+								) : diffStatus === 'error' ? (
+									<>
+										<Github className="h-3 w-3 text-red-500" />
+										<span className="text-xs text-red-500 dark:text-red-400">
+											Error fetching branch data
+										</span>
+										<button
+											onClick={() => setIsCustomBranchModalOpen(true)}
+											className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 ml-1 underline"
+										>
+											Custom
+										</button>
+									</>
+								) : githubConnected ? (
+									<>
+										<Github className="h-3 w-3 text-neutral-500" />
+										<span className="text-xs text-neutral-500 dark:text-neutral-400">
+											Checking GitHub branch status...
+										</span>
+									</>
+								) : null}
+							</div>
+						)}
 					</div>
 				</div>
 
@@ -88,6 +361,15 @@ const PRGenerator = () => {
 					<div className="border-t border-neutral-200 dark:border-neutral-800">
 						<div className="p-5">
 							<PRDescription content={completion} onChange={setCompletion} />
+
+							{(diffStatus === 'success' || diffStatus === 'custom') && (
+								<div className="mt-2 flex items-center gap-1.5">
+									<Code className="h-3.5 w-3.5 text-green-500" />
+									<span className="text-xs text-green-500 dark:text-green-400">
+										Generated with code diff from {diffStatus === 'custom' ? 'custom branches' : 'GitHub'}
+									</span>
+								</div>
+							)}
 						</div>
 					</div>
 				)}
@@ -99,20 +381,46 @@ const PRGenerator = () => {
 						<StatusMessage
 							completion={completion}
 							selectedIssueId={selectedIssueId}
+							diffStatus={diffStatus}
+							hasDiffData={hasDiffData}
 						/>
 						<Button
-							disabled={!selectedIssueId || isGenerating}
+							disabled={isGenerateButtonDisabled}
 							onClick={handleGeneratePR}
 							variant="secondary"
 							size="sm"
 							className="h-8 px-3 text-xs font-medium"
 						>
-							<GitPullRequest className="h-3.5 w-3.5" />
-							{isGenerating ? 'Generating...' : 'Generate Description'}
+							{diffStatus === 'fetching' || customBranchLoading ? (
+								<>
+									<Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+									{customBranchLoading ? 'Fetching diff...' : 'Checking branch...'}
+								</>
+							) : isGenerating ? (
+								<>
+									<GitPullRequest className="h-3.5 w-3.5 mr-1" />
+									Generating...
+								</>
+							) : (
+								<>
+									<GitPullRequest className="h-3.5 w-3.5 mr-1" />
+									Generate Description
+								</>
+							)}
 						</Button>
 					</div>
 				</div>
 			</div>
+
+			{/* Custom Branch Selection Modal */}
+			<BranchSelectionModal
+				open={isCustomBranchModalOpen}
+				onOpenChange={setIsCustomBranchModalOpen}
+				onSelect={handleSelectCustomBranches}
+				currentRepository={diffData?.repository}
+				currentSourceBranch={diffData?.sourceBranch}
+				currentTargetBranch={diffData?.targetBranch}
+			/>
 		</div>
 	)
 }
@@ -144,16 +452,24 @@ const ErrorMessage = ({error}: {error: string}) => (
 
 const StatusMessage = ({
 	completion,
-	selectedIssueId
+	selectedIssueId,
+	diffStatus,
+	hasDiffData
 }: {
 	completion: string | null
 	selectedIssueId: string | null
+	diffStatus: DiffStatus
+	hasDiffData: boolean
 }) => (
 	<p className="text-sm text-neutral-500 dark:text-neutral-400">
 		{completion
 			? 'PR description generated successfully'
 			: selectedIssueId
-				? 'Ready to generate PR description'
+				? diffStatus === 'fetching'
+					? 'Checking for GitHub branch...'
+					: diffStatus === 'success' || diffStatus === 'custom'
+						? `Ready to generate PR description with ${diffStatus === 'custom' ? 'custom branch' : ''} code diff`
+						: 'Ready to generate PR description'
 				: 'Select an in-progress issue to continue'}
 	</p>
 )

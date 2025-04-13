@@ -7,7 +7,8 @@ import {
 	DialogContent,
 	DialogHeader,
 	DialogTitle,
-	DialogTrigger
+	DialogTrigger,
+	DialogDescription
 } from '@/components/ui/dialog'
 
 interface CustomInstructionsDialogProps {
@@ -49,9 +50,9 @@ export const CustomInstructionsDialog = ({value, onChange}: CustomInstructionsDi
 			<DialogContent className="sm:max-w-[600px] bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl backdrop-saturate-150 border-neutral-200/80 dark:border-neutral-800/80">
 				<DialogHeader>
 					<DialogTitle className="text-xl font-medium">Custom Instructions</DialogTitle>
-					<p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1.5">
+					<DialogDescription className="text-sm text-neutral-500 dark:text-neutral-400 mt-1.5">
 						Customize how your PR descriptions are generated
-					</p>
+					</DialogDescription>
 				</DialogHeader>
 				<div className="space-y-4 pt-3">
 					<InstructionsForm value={localValue} onChange={setLocalValue} />
