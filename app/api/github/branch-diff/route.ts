@@ -1,5 +1,4 @@
 import {cookies} from 'next/headers'
-import {NextResponse} from 'next/server'
 
 export async function POST(request: Request) {
 	try {
@@ -14,7 +13,7 @@ export async function POST(request: Request) {
 		}
 
 		const body = await request.json()
-		const {issueIdentifier, issueTitle, issueDescription} = body
+		const {issueIdentifier, issueTitle} = body
 
 		if (!issueIdentifier) {
 			return Response.json(
