@@ -89,6 +89,11 @@ export const GET = async (request: Request) => {
 				sameSite: 'lax',
 				maxAge: 30 * 24 * 60 * 60 // 30 days
 			})
+			cookieStore.set('varnan_userId', savedUser[0].id, {
+				secure: process.env.NODE_ENV === 'production',
+				sameSite: 'lax',
+				maxAge: 30 * 24 * 60 * 60 // 30 days
+			})
 
 			return response
 		} catch (dbError) {

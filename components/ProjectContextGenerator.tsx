@@ -19,6 +19,7 @@ type ProjectContextData = {
   metadataFileType: string;
   createdAt: string;
   updatedAt: string;
+  isFresh?: boolean;
 };
 
 export default function ProjectContextGenerator() {
@@ -57,15 +58,6 @@ export default function ProjectContextGenerator() {
 		fetchRepositories()
 	}, [])
 
-	// Check if a repo's context needs refreshing (older than 7 days)
-	const checkIfNeedsRefresh = (updatedAt: string): boolean => {
-		const lastUpdate = new Date(updatedAt)
-		const now = new Date()
-		const diffTime = Math.abs(now.getTime() - lastUpdate.getTime())
-		const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-		return diffDays >= 7
-	}
-
 	const updateSelectedRepo = async (repoFullName: string) => {
 		setSelectedRepo(repoFullName)
 
@@ -83,7 +75,8 @@ export default function ProjectContextGenerator() {
 				const data = await response.json()
 				if (data.projectContext) {
 					setSavedContext(data)
-					setNeedsRefresh(checkIfNeedsRefresh(data.updatedAt))
+					// API now returns isFresh flag directly
+					setNeedsRefresh(!data.isFresh)
 				}
 			}
 		} catch (error) {
@@ -104,7 +97,7 @@ export default function ProjectContextGenerator() {
 		setLoading(true)
 		try {
 			// If we have a saved context and it doesn't need refresh, use it
-			if (!forceRefresh && savedContext && !needsRefresh) {
+			if (!forceRefresh && savedContext && savedContext.isFresh) {
 				console.log(`Using saved context for ${selectedRepo}`)
 				setProjectContext(savedContext.projectContext)
 				return
@@ -202,7 +195,7 @@ export default function ProjectContextGenerator() {
 
 			// Save to database
 			try {
-				await fetch('/api/project-context', {
+				const saveResponse = await fetch('/api/project-context', {
 					method: 'POST',
 					headers: {'Content-Type': 'application/json'},
 					body: JSON.stringify({
@@ -220,7 +213,8 @@ export default function ProjectContextGenerator() {
 					projectContext: formattedContext,
 					metadataFileType: targetMetadataFile || '',
 					createdAt: savedContext?.createdAt || new Date().toISOString(),
-					updatedAt: new Date().toISOString()
+					updatedAt: new Date().toISOString(),
+					isFresh: true
 				})
 			} catch (error) {
 				console.error('Error saving project context:', error)

@@ -13,14 +13,6 @@ export async function GET(request: Request) {
 			return Response.json({error: 'GitHub URL is required'}, {status: 400})
 		}
 
-		// Get the current user
-		const cookieStore = await cookies()
-		const token = cookieStore.get('linear_access_token')?.value
-
-		if (!token) {
-			return Response.json({error: 'Authentication required'}, {status: 401})
-		}
-
 		// Find the project context in database
 		const result = await db.select().from(projectContexts).where(eq(projectContexts.githubUrl, githubUrl)).limit(1)
 
@@ -30,35 +22,53 @@ export async function GET(request: Request) {
 
 		const projectContext = result[0]
 
-		// Find the user by access token
-		const userResult = await db.select().from(users).where(eq(users.accessToken, token)).limit(1)
+		// Check if context is fresh (less than 7 days old)
+		const lastUpdate = projectContext.updatedAt ? new Date(projectContext.updatedAt) : new Date()
+		const now = new Date()
+		const diffTime = Math.abs(now.getTime() - lastUpdate.getTime())
+		const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+		const isFresh = diffDays < 7
 
-		if (userResult.length === 0) {
-			return Response.json({error: 'User not found'}, {status: 404})
+		// Get the current user ID (optional)
+		const cookieStore = await cookies()
+		const userId = cookieStore.get('varnan_userId')?.value
+
+		// If we have a user ID, associate this context with the user
+		if (userId) {
+			try {
+				// Find the user by ID
+				const userResult = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+
+				if (userResult.length > 0) {
+					// Check if user already has this project context associated
+					const userContextResult = await db.select()
+						.from(userProjectContexts)
+						.where(
+							and(
+								eq(userProjectContexts.userId, userId),
+								eq(userProjectContexts.projectContextId, projectContext.id)
+							)
+						)
+						.limit(1)
+
+					// If not associated, create the association
+					if (userContextResult.length === 0) {
+						await db.insert(userProjectContexts).values({
+							userId: userId,
+							projectContextId: projectContext.id
+						})
+					}
+				}
+			} catch (error) {
+				console.error('Error associating context with user:', error)
+				// Continue anyway - this is just an enhancement
+			}
 		}
 
-		const user = userResult[0]
-
-		// Check if user already has this project context associated
-		const userContextResult = await db.select()
-			.from(userProjectContexts)
-			.where(
-				and(
-					eq(userProjectContexts.userId, user.id),
-					eq(userProjectContexts.projectContextId, projectContext.id)
-				)
-			)
-			.limit(1)
-
-		// If not associated, create the association
-		if (userContextResult.length === 0) {
-			await db.insert(userProjectContexts).values({
-				userId: user.id,
-				projectContextId: projectContext.id
-			})
-		}
-
-		return Response.json(projectContext)
+		return Response.json({
+			...projectContext,
+			isFresh
+		})
 	} catch (error) {
 		console.error('Error fetching project context:', error)
 		return Response.json(
@@ -72,9 +82,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
 	try {
 		const cookieStore = await cookies()
-		const token = cookieStore.get('linear_access_token')?.value
+		const userId = cookieStore.get('varnan_userId')?.value
 
-		if (!token) {
+		if (!userId) {
 			return Response.json({error: 'Authentication required'}, {status: 401})
 		}
 
@@ -88,14 +98,12 @@ export async function POST(request: Request) {
 			)
 		}
 
-		// Find the user by access token
-		const userResult = await db.select().from(users).where(eq(users.accessToken, token)).limit(1)
+		// Find the user by ID
+		const userResult = await db.select().from(users).where(eq(users.id, userId)).limit(1)
 
 		if (userResult.length === 0) {
 			return Response.json({error: 'User not found'}, {status: 404})
 		}
-
-		const user = userResult[0]
 
 		// Check if project context already exists
 		const existingContext = await db.select()
@@ -134,7 +142,7 @@ export async function POST(request: Request) {
 			.from(userProjectContexts)
 			.where(
 				and(
-					eq(userProjectContexts.userId, user.id),
+					eq(userProjectContexts.userId, userId),
 					eq(userProjectContexts.projectContextId, projectContextId)
 				)
 			)
@@ -143,7 +151,7 @@ export async function POST(request: Request) {
 		// If not associated, create the association
 		if (userContextResult.length === 0) {
 			await db.insert(userProjectContexts).values({
-				userId: user.id,
+				userId: userId,
 				projectContextId
 			})
 		}
