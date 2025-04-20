@@ -1,166 +1,140 @@
-import {cookies} from 'next/headers'
+import {NextRequest, NextResponse} from 'next/server'
 import {db} from '@/lib/db'
-import {projectContexts, userProjectContexts, users} from '@/lib/db/schema'
+import {projectContexts, userProjectContexts} from '@/lib/db/schema'
+import {cookies} from 'next/headers'
 import {eq, and} from 'drizzle-orm'
 
 // GET: Fetch project context by GitHub URL
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
 	try {
-		const {searchParams} = new URL(request.url)
-		const githubUrl = searchParams.get('githubUrl')
-
+		const githubUrl = request.nextUrl.searchParams.get('githubUrl')
+		
 		if (!githubUrl) {
-			return Response.json({error: 'GitHub URL is required'}, {status: 400})
+			return NextResponse.json(
+				{error: 'GitHub URL is required'},
+				{status: 400}
+			)
+		}
+		
+		// Check if context exists
+		const context = await db
+			.select()
+			.from(projectContexts)
+			.where(eq(projectContexts.githubUrl, githubUrl))
+			.limit(1)
+		
+		if (context.length === 0) {
+			return NextResponse.json(
+				{error: 'Project context not found'},
+				{status: 404}
+			)
 		}
 
-		// Find the project context in database
-		const result = await db.select().from(projectContexts).where(eq(projectContexts.githubUrl, githubUrl)).limit(1)
-
-		if (result.length === 0) {
-			return Response.json({error: 'Project context not found'}, {status: 404})
-		}
-
-		const projectContext = result[0]
-
-		// Check if context is fresh (less than 7 days old)
-		const lastUpdate = projectContext.updatedAt ? new Date(projectContext.updatedAt) : new Date()
+		// Return with fresh flag
+		// A context is fresh if it's less than 7 days old
+		const createdAt = context[0].createdAt || new Date()
 		const now = new Date()
-		const diffTime = Math.abs(now.getTime() - lastUpdate.getTime())
-		const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+		const diffDays = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
 		const isFresh = diffDays < 7
 
-		// Get the current user ID (optional)
-		const cookieStore = await cookies()
-		const userId = cookieStore.get('varnan_userId')?.value
-
-		// If we have a user ID, associate this context with the user
-		if (userId) {
-			try {
-				// Find the user by ID
-				const userResult = await db.select().from(users).where(eq(users.id, userId)).limit(1)
-
-				if (userResult.length > 0) {
-					// Check if user already has this project context associated
-					const userContextResult = await db.select()
-						.from(userProjectContexts)
-						.where(
-							and(
-								eq(userProjectContexts.userId, userId),
-								eq(userProjectContexts.projectContextId, projectContext.id)
-							)
-						)
-						.limit(1)
-
-					// If not associated, create the association
-					if (userContextResult.length === 0) {
-						await db.insert(userProjectContexts).values({
-							userId: userId,
-							projectContextId: projectContext.id
-						})
-					}
-				}
-			} catch (error) {
-				console.error('Error associating context with user:', error)
-				// Continue anyway - this is just an enhancement
-			}
-		}
-
-		return Response.json({
-			...projectContext,
+		return NextResponse.json({
+			...context[0],
 			isFresh
 		})
 	} catch (error) {
 		console.error('Error fetching project context:', error)
-		return Response.json(
-			{error: 'Failed to process request', details: error instanceof Error ? error.message : String(error)},
+		return NextResponse.json(
+			{error: 'Failed to fetch project context'},
 			{status: 500}
 		)
 	}
 }
 
 // POST: Create or update project context
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
 	try {
-		const cookieStore = await cookies()
-		const userId = cookieStore.get('varnan_userId')?.value
-
-		if (!userId) {
-			return Response.json({error: 'Authentication required'}, {status: 401})
+		let userId = null
+		
+		// Try to get the user ID if available, but don't require it
+		try {
+			const cookieStore = await cookies()
+			userId = cookieStore.get('varnan_userId')?.value
+		} catch (e) {
+			console.log('No user ID available, continuing anonymously')
 		}
-
-		const body = await request.json()
-		const {githubUrl, projectContext, metadataFileType} = body
+		
+		const {githubUrl, projectContext, metadataFileType} = await request.json()
 
 		if (!githubUrl || !projectContext) {
-			return Response.json(
+			return NextResponse.json(
 				{error: 'GitHub URL and project context are required'},
 				{status: 400}
 			)
 		}
 
-		// Find the user by ID
-		const userResult = await db.select().from(users).where(eq(users.id, userId)).limit(1)
-
-		if (userResult.length === 0) {
-			return Response.json({error: 'User not found'}, {status: 404})
-		}
-
 		// Check if project context already exists
-		const existingContext = await db.select()
+		const existingContext = await db
+			.select()
 			.from(projectContexts)
 			.where(eq(projectContexts.githubUrl, githubUrl))
-			.limit(1)
 
-		let projectContextId: number
-
+		let contextId: number
+		
 		if (existingContext.length > 0) {
-			// Update existing context
-			await db.update(projectContexts)
+			// Update existing project context
+			const [updated] = await db
+				.update(projectContexts)
 				.set({
 					projectContext,
 					metadataFileType,
 					updatedAt: new Date()
 				})
-				.where(eq(projectContexts.id, existingContext[0].id))
-
-			projectContextId = existingContext[0].id
+				.where(eq(projectContexts.githubUrl, githubUrl))
+				.returning({id: projectContexts.id})
+			
+			contextId = updated.id
 		} else {
-			// Create new context
-			const result = await db.insert(projectContexts)
+			// Create new project context
+			const [created] = await db
+				.insert(projectContexts)
 				.values({
 					githubUrl,
 					projectContext,
-					metadataFileType
+					metadataFileType: metadataFileType || ''
 				})
 				.returning({id: projectContexts.id})
-
-			projectContextId = result[0].id
+			
+			contextId = created.id
 		}
 
-		// Check if user already has this project context associated
-		const userContextResult = await db.select()
-			.from(userProjectContexts)
-			.where(
-				and(
-					eq(userProjectContexts.userId, userId),
-					eq(userProjectContexts.projectContextId, projectContextId)
+		// Associate with user if user ID is available
+		if (userId) {
+			// Check if already associated
+			const userAssociation = await db
+				.select()
+				.from(userProjectContexts)
+				.where(
+					and(
+						eq(userProjectContexts.userId, userId),
+						eq(userProjectContexts.projectContextId, contextId)
+					)
 				)
-			)
-			.limit(1)
 
-		// If not associated, create the association
-		if (userContextResult.length === 0) {
-			await db.insert(userProjectContexts).values({
-				userId: userId,
-				projectContextId
-			})
+			if (userAssociation.length === 0) {
+				await db
+					.insert(userProjectContexts)
+					.values({
+						userId,
+						projectContextId: contextId
+					})
+			}
 		}
 
-		return Response.json({success: true, projectContextId})
+		return NextResponse.json({success: true})
 	} catch (error) {
 		console.error('Error saving project context:', error)
-		return Response.json(
-			{error: 'Failed to process request', details: error instanceof Error ? error.message : String(error)},
+		return NextResponse.json(
+			{error: 'Failed to save project context'},
 			{status: 500}
 		)
 	}

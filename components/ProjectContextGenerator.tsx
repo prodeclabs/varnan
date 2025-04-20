@@ -3,7 +3,7 @@
 import {useState, useEffect} from 'react'
 import {Button} from '@/components/ui/button'
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select'
-import {Loader2, RefreshCw} from 'lucide-react'
+import {Loader2, RefreshCw, Check} from 'lucide-react'
 
 type Repository = {
   id: string;
@@ -22,7 +22,12 @@ type ProjectContextData = {
   isFresh?: boolean;
 };
 
-export default function ProjectContextGenerator() {
+interface ProjectContextGeneratorProps {
+  inDialog?: boolean;
+  onContextGenerated?: () => void;
+}
+
+export default function ProjectContextGenerator({inDialog = false, onContextGenerated}: ProjectContextGeneratorProps) {
 	const [repositories, setRepositories] = useState<Repository[]>([])
 	const [selectedRepo, setSelectedRepo] = useState<string>('')
 	const [loading, setLoading] = useState(false)
@@ -31,6 +36,7 @@ export default function ProjectContextGenerator() {
 	const [error, setError] = useState('')
 	const [savedContext, setSavedContext] = useState<ProjectContextData | null>(null)
 	const [needsRefresh, setNeedsRefresh] = useState(false)
+	const [showSuccess, setShowSuccess] = useState(false)
 
 	// Fetch repositories when component mounts
 	useEffect(() => {
@@ -65,6 +71,7 @@ export default function ProjectContextGenerator() {
 		setProjectContext('')
 		setSavedContext(null)
 		setNeedsRefresh(false)
+		setShowSuccess(false)
 
 		if (!repoFullName) return
 
@@ -77,6 +84,9 @@ export default function ProjectContextGenerator() {
 					setSavedContext(data)
 					// API now returns isFresh flag directly
 					setNeedsRefresh(!data.isFresh)
+					if (inDialog) {
+						setShowSuccess(true)
+					}
 				}
 			}
 		} catch (error) {
@@ -100,6 +110,12 @@ export default function ProjectContextGenerator() {
 			if (!forceRefresh && savedContext && savedContext.isFresh) {
 				console.log(`Using saved context for ${selectedRepo}`)
 				setProjectContext(savedContext.projectContext)
+				if (inDialog) {
+					setShowSuccess(true)
+					if (onContextGenerated) {
+						setTimeout(onContextGenerated, 1500)
+					}
+				}
 				return
 			}
 
@@ -220,7 +236,14 @@ export default function ProjectContextGenerator() {
 				console.error('Error saving project context:', error)
 			}
 
-			setProjectContext(formattedContext)
+			if (inDialog) {
+				setShowSuccess(true)
+				if (onContextGenerated) {
+					setTimeout(onContextGenerated, 1500)
+				}
+			} else {
+				setProjectContext(formattedContext)
+			}
 		} catch (error) {
 			console.error('Error generating project context:', error)
 			setError('Failed to generate project context')
@@ -337,14 +360,23 @@ export default function ProjectContextGenerator() {
 				</div>
 			</div>
 
-			<Button
-				onClick={() => generateContext()}
-				disabled={loading || !selectedRepo}
-			>
-				{loading ? 'Generating...' : 'Generate Context'}
-			</Button>
+			{showSuccess ? (
+				<div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950 rounded-md">
+					<Check className="h-5 w-5 text-green-500" />
+					<span className="text-green-700 dark:text-green-300">
+						Project context has been created and saved for {selectedRepo}
+					</span>
+				</div>
+			) : (
+				<Button
+					onClick={() => generateContext()}
+					disabled={loading || !selectedRepo}
+				>
+					{loading ? 'Generating...' : 'Generate Context'}
+				</Button>
+			)}
 
-			{projectContext && (
+			{!inDialog && projectContext && (
 				<div className="mt-6 space-y-2">
 					<h3 className="text-md font-medium">Generated Context:</h3>
 					<pre className="p-4 bg-neutral-100 dark:bg-neutral-900 rounded-md overflow-auto max-h-[400px] text-xs whitespace-pre-wrap">

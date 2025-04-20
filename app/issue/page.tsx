@@ -1,16 +1,20 @@
-import ProjectContextGenerator from '@/components/ProjectContextGenerator'
+import IssuePromptGenerator from '@/components/IssuePromptGenerator'
+import ProjectContextButton from '@/components/ProjectContextButton'
 
 export default function IssuePage() {
 	return (
 		<div className="container mx-auto py-8">
-			<h1 className="text-2xl font-bold mb-6">Issues</h1>
+			<div className="flex items-center justify-between mb-6">
+				<h1 className="text-2xl font-bold">Issues</h1>
+				<ProjectContextButton/>
+			</div>
 			<div className="mb-8">
 				<p className="text-neutral-500 dark:text-neutral-400 mb-4">
-					Select GitHub repositories to generate project context for your issues.
-					This context will help provide better understanding of your codebase.
+					Write issue descriptions in natural language.
+					The AI will generate a formatted Linear issue using any project context you've added.
 				</p>
 			</div>
-			<ProjectContextGenerator />
+			<IssuePromptGenerator />
 		</div>
 	)
 }
