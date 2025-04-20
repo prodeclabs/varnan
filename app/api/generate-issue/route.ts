@@ -38,8 +38,8 @@ Ensure the issue is descriptive, actionable, and follows best practices for issu
 		if (projectContext) {
 			systemPrompt += `\n\nUse the following project context to better understand the codebase and generate a relevant issue:\n\n${projectContext}`
 		}
-		
-		const { object: issue } = await generateObject({
+
+		const {object: issue} = await generateObject({
 			model: openai('gpt-4o'),
 			schema: issueSchema,
 			system: systemPrompt,
@@ -52,7 +52,7 @@ Ensure the issue is descriptive, actionable, and follows best practices for issu
 ${issue.description}
 
 **Labels:** ${issue.labels.map((label: string) => `\`${label}\``).join(', ')}
-`;
+`
 
 		return NextResponse.json({
 			text: formattedIssue,

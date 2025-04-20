@@ -34,10 +34,10 @@ export default function IssuePromptGenerator() {
 				if (!response.ok) {
 					throw new Error('Failed to fetch project contexts')
 				}
-				
+
 				const data = await response.json()
 				setProjectContexts(data)
-				
+
 				// Auto-select the first context if available
 				if (data.length > 0) {
 					setSelectedContext(data[0].githubUrl)
@@ -49,7 +49,7 @@ export default function IssuePromptGenerator() {
 				setIsLoading(false)
 			}
 		}
-		
+
 		fetchProjectContexts()
 	}, [])
 
@@ -58,14 +58,14 @@ export default function IssuePromptGenerator() {
 			setError('Please enter a prompt')
 			return
 		}
-		
+
 		setIsGenerating(true)
 		setError(null)
-		
+
 		try {
 			// Find the selected context
 			const contextData = projectContexts.find(ctx => ctx.githubUrl === selectedContext)
-			
+
 			const response = await fetch('/api/generate-issue', {
 				method: 'POST',
 				headers: {
@@ -76,11 +76,11 @@ export default function IssuePromptGenerator() {
 					projectContext: contextData?.projectContext || null
 				})
 			})
-			
+
 			if (!response.ok) {
 				throw new Error('Failed to generate issue')
 			}
-			
+
 			const data = await response.json()
 			setGeneratedIssue(data.text)
 		} catch (error) {

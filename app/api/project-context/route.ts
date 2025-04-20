@@ -8,21 +8,21 @@ import {eq, and} from 'drizzle-orm'
 export async function GET(request: NextRequest) {
 	try {
 		const githubUrl = request.nextUrl.searchParams.get('githubUrl')
-		
+
 		if (!githubUrl) {
 			return NextResponse.json(
 				{error: 'GitHub URL is required'},
 				{status: 400}
 			)
 		}
-		
+
 		// Check if context exists
 		const context = await db
 			.select()
 			.from(projectContexts)
 			.where(eq(projectContexts.githubUrl, githubUrl))
 			.limit(1)
-		
+
 		if (context.length === 0) {
 			return NextResponse.json(
 				{error: 'Project context not found'},
@@ -30,8 +30,10 @@ export async function GET(request: NextRequest) {
 			)
 		}
 
-		// Return with fresh flag
-		// A context is fresh if it's less than 7 days old
+		/*
+		 * Return with fresh flag
+		 * A context is fresh if it's less than 7 days old
+		 */
 		const createdAt = context[0].createdAt || new Date()
 		const now = new Date()
 		const diffDays = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
@@ -54,7 +56,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
 	try {
 		let userId = null
-		
+
 		// Try to get the user ID if available, but don't require it
 		try {
 			const cookieStore = await cookies()
@@ -62,7 +64,7 @@ export async function POST(request: NextRequest) {
 		} catch (e) {
 			console.log('No user ID available, continuing anonymously')
 		}
-		
+
 		const {githubUrl, projectContext, metadataFileType} = await request.json()
 
 		if (!githubUrl || !projectContext) {
@@ -79,7 +81,7 @@ export async function POST(request: NextRequest) {
 			.where(eq(projectContexts.githubUrl, githubUrl))
 
 		let contextId: number
-		
+
 		if (existingContext.length > 0) {
 			// Update existing project context
 			const [updated] = await db
@@ -91,7 +93,7 @@ export async function POST(request: NextRequest) {
 				})
 				.where(eq(projectContexts.githubUrl, githubUrl))
 				.returning({id: projectContexts.id})
-			
+
 			contextId = updated.id
 		} else {
 			// Create new project context
@@ -103,7 +105,7 @@ export async function POST(request: NextRequest) {
 					metadataFileType: metadataFileType || ''
 				})
 				.returning({id: projectContexts.id})
-			
+
 			contextId = created.id
 		}
 
