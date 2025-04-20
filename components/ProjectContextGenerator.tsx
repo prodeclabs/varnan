@@ -2,7 +2,6 @@
 
 import {useState, useEffect} from 'react'
 import {Button} from '@/components/ui/button'
-import {Input} from '@/components/ui/input'
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select'
 import {Loader2, RefreshCw} from 'lucide-react'
 
@@ -24,13 +23,13 @@ type ProjectContextData = {
 
 export default function ProjectContextGenerator() {
 	const [repositories, setRepositories] = useState<Repository[]>([])
-	const [selectedRepos, setSelectedRepos] = useState<string[]>([])
+	const [selectedRepo, setSelectedRepo] = useState<string>('')
 	const [loading, setLoading] = useState(false)
 	const [isLoadingRepos, setIsLoadingRepos] = useState(false)
 	const [projectContext, setProjectContext] = useState<string>('')
 	const [error, setError] = useState('')
-	const [savedContexts, setSavedContexts] = useState<Record<string, ProjectContextData>>({})
-	const [needsRefresh, setNeedsRefresh] = useState<Record<string, boolean>>({})
+	const [savedContext, setSavedContext] = useState<ProjectContextData | null>(null)
+	const [needsRefresh, setNeedsRefresh] = useState(false)
 
 	// Fetch repositories when component mounts
 	useEffect(() => {
@@ -67,20 +66,15 @@ export default function ProjectContextGenerator() {
 		return diffDays >= 7
 	}
 
-	const addRepository = () => {
-		setSelectedRepos([...selectedRepos, ''])
-	}
+	const updateSelectedRepo = async (repoFullName: string) => {
+		setSelectedRepo(repoFullName)
 
-	const removeRepository = (index: number) => {
-		const updatedRepos = [...selectedRepos]
-		updatedRepos.splice(index, 1)
-		setSelectedRepos(updatedRepos)
-	}
+		// Reset context state
+		setProjectContext('')
+		setSavedContext(null)
+		setNeedsRefresh(false)
 
-	const updateSelectedRepo = async (index: number, repoFullName: string) => {
-		const updatedRepos = [...selectedRepos]
-		updatedRepos[index] = repoFullName
-		setSelectedRepos(updatedRepos)
+		if (!repoFullName) return
 
 		// Check if we already have this context in the database
 		try {
@@ -88,14 +82,8 @@ export default function ProjectContextGenerator() {
 			if (response.ok) {
 				const data = await response.json()
 				if (data.projectContext) {
-					const updatedSavedContexts = {...savedContexts}
-					updatedSavedContexts[repoFullName] = data
-					setSavedContexts(updatedSavedContexts)
-
-					// Check if context needs refresh
-					const updatedNeedsRefresh = {...needsRefresh}
-					updatedNeedsRefresh[repoFullName] = checkIfNeedsRefresh(data.updatedAt)
-					setNeedsRefresh(updatedNeedsRefresh)
+					setSavedContext(data)
+					setNeedsRefresh(checkIfNeedsRefresh(data.updatedAt))
 				}
 			}
 		} catch (error) {
@@ -103,160 +91,145 @@ export default function ProjectContextGenerator() {
 		}
 	}
 
-	const refreshContext = async (repo: string) => {
-		await generateContextForRepo(repo, true)
+	const refreshContext = async () => {
+		await generateContext(true)
 	}
 
-	const generateContextForRepo = async (repo: string, forceRefresh = false) => {
-		// If we have a saved context and it doesn't need refresh, use it
-		if (!forceRefresh && savedContexts[repo] && !needsRefresh[repo]) {
-			console.log(`Using saved context for ${repo}`)
-			return savedContexts[repo].projectContext
+	const generateContext = async (forceRefresh = false) => {
+		if (!selectedRepo) {
+			setError('Please select a repository')
+			return
 		}
 
-		console.log(`Generating new context for ${repo}`)
+		setLoading(true)
+		try {
+			// If we have a saved context and it doesn't need refresh, use it
+			if (!forceRefresh && savedContext && !needsRefresh) {
+				console.log(`Using saved context for ${selectedRepo}`)
+				setProjectContext(savedContext.projectContext)
+				return
+			}
 
-		// 1. Get file tree (recursive)
-		const fileTreeResponse = await fetch('/api/github/repository-content', {
-			method: 'POST',
-			headers: {'Content-Type': 'application/json'},
-			body: JSON.stringify({repository: repo, recursive: true})
-		})
+			console.log(`Generating new context for ${selectedRepo}`)
 
-		if (!fileTreeResponse.ok) {
-			console.error(`Failed to fetch file tree for ${repo}`)
-			return ''
-		}
-
-		const fileTreeData = await fileTreeResponse.json()
-
-		// 2. Get README content
-		const readmeResponse = await fetch('/api/github/repository-content', {
-			method: 'POST',
-			headers: {'Content-Type': 'application/json'},
-			body: JSON.stringify({repository: repo, path: 'README.md'})
-		})
-
-		let readmeContent = ''
-		if (readmeResponse.ok) {
-			const readmeData = await readmeResponse.json()
-			readmeContent = readmeData.contents.content || ''
-		}
-
-		// Check if we have metadata file information from a previous save
-		let targetMetadataFile = null
-		let metadataContents: Record<string, string> = {}
-
-		if (!forceRefresh && savedContexts[repo]?.metadataFileType) {
-			targetMetadataFile = savedContexts[repo].metadataFileType
-
-			// Fetch only the known metadata file
-			const metadataResponse = await fetch('/api/github/repository-content', {
+			// 1. Get file tree (recursive)
+			const fileTreeResponse = await fetch('/api/github/repository-content', {
 				method: 'POST',
 				headers: {'Content-Type': 'application/json'},
-				body: JSON.stringify({repository: repo, path: targetMetadataFile})
+				body: JSON.stringify({repository: selectedRepo, recursive: true})
 			})
 
-			if (metadataResponse.ok) {
-				const metadataData = await metadataResponse.json()
-				if (metadataData.contents && metadataData.contents.content) {
-					metadataContents[targetMetadataFile] = metadataData.contents.content
+			if (!fileTreeResponse.ok) {
+				console.error(`Failed to fetch file tree for ${selectedRepo}`)
+				setError(`Failed to fetch file tree for ${selectedRepo}`)
+				return
+			}
+
+			const fileTreeData = await fileTreeResponse.json()
+
+			// 2. Get README content
+			const readmeResponse = await fetch('/api/github/repository-content', {
+				method: 'POST',
+				headers: {'Content-Type': 'application/json'},
+				body: JSON.stringify({repository: selectedRepo, path: 'README.md'})
+			})
+
+			let readmeContent = ''
+			if (readmeResponse.ok) {
+				const readmeData = await readmeResponse.json()
+				readmeContent = readmeData.contents.content || ''
+			}
+
+			// Check if we have metadata file information from a previous save
+			let targetMetadataFile = null
+			let metadataContents: Record<string, string> = {}
+
+			if (!forceRefresh && savedContext?.metadataFileType) {
+				targetMetadataFile = savedContext.metadataFileType
+
+				// Fetch only the known metadata file
+				const metadataResponse = await fetch('/api/github/repository-content', {
+					method: 'POST',
+					headers: {'Content-Type': 'application/json'},
+					body: JSON.stringify({repository: selectedRepo, path: targetMetadataFile})
+				})
+
+				if (metadataResponse.ok) {
+					const metadataData = await metadataResponse.json()
+					if (metadataData.contents && metadataData.contents.content) {
+						metadataContents[targetMetadataFile] = metadataData.contents.content
+					}
 				}
-			}
-		} else {
-			// 3. Get package metadata files - grouped by language/technology
-			const metadataFilesGroups = {
-				javascript: ['package.json', 'tsconfig.json', 'next.config.js'],
-				python: ['requirements.txt', 'setup.py', 'pyproject.toml'],
-				rust: ['Cargo.toml'],
-				go: ['go.mod', 'go.sum'],
-				java: ['pom.xml', 'build.gradle']
-			}
+			} else {
+				// 3. Get package metadata files - grouped by language/technology
+				const metadataFilesGroups = {
+					javascript: ['package.json', 'tsconfig.json', 'next.config.js'],
+					python: ['requirements.txt', 'setup.py', 'pyproject.toml'],
+					rust: ['Cargo.toml'],
+					go: ['go.mod', 'go.sum'],
+					java: ['pom.xml', 'build.gradle']
+				}
 
-			let metadataFound = false
+				let metadataFound = false
 
-			// Try each metadata group, exit early if we find a match
-			for (const [language, files] of Object.entries(metadataFilesGroups)) {
-				if (metadataFound) break
+				// Try each metadata group, exit early if we find a match
+				for (const [language, files] of Object.entries(metadataFilesGroups)) {
+					if (metadataFound) break
 
-				for (const file of files) {
-					const metadataResponse = await fetch('/api/github/repository-content', {
-						method: 'POST',
-						headers: {'Content-Type': 'application/json'},
-						body: JSON.stringify({repository: repo, path: file})
-					})
+					for (const file of files) {
+						const metadataResponse = await fetch('/api/github/repository-content', {
+							method: 'POST',
+							headers: {'Content-Type': 'application/json'},
+							body: JSON.stringify({repository: selectedRepo, path: file})
+						})
 
-					if (metadataResponse.ok) {
-						const metadataData = await metadataResponse.json()
-						if (metadataData.contents && metadataData.contents.content) {
-							metadataContents[file] = metadataData.contents.content
-							targetMetadataFile = file
-							metadataFound = true
-							console.log(`Found metadata file: ${file} for ${repo}`)
-							break // Exit the inner loop once we find a file in this group
+						if (metadataResponse.ok) {
+							const metadataData = await metadataResponse.json()
+							if (metadataData.contents && metadataData.contents.content) {
+								metadataContents[file] = metadataData.contents.content
+								targetMetadataFile = file
+								metadataFound = true
+								console.log(`Found metadata file: ${file} for ${selectedRepo}`)
+								break // Exit the inner loop once we find a file in this group
+							}
 						}
 					}
 				}
 			}
-		}
 
-		// Format the project context as markdown
-		const formattedContext = formatProjectContext(repo, fileTreeData, readmeContent, metadataContents)
+			// Format the project context as markdown
+			const formattedContext = formatProjectContext(selectedRepo, fileTreeData, readmeContent, metadataContents)
 
-		// Save to database
-		try {
-			await fetch('/api/project-context', {
-				method: 'POST',
-				headers: {'Content-Type': 'application/json'},
-				body: JSON.stringify({
-					githubUrl: repo,
-					projectContext: formattedContext,
-					metadataFileType: targetMetadataFile
+			// Save to database
+			try {
+				await fetch('/api/project-context', {
+					method: 'POST',
+					headers: {'Content-Type': 'application/json'},
+					body: JSON.stringify({
+						githubUrl: selectedRepo,
+						projectContext: formattedContext,
+						metadataFileType: targetMetadataFile
+					})
 				})
-			})
 
-			// Update local state
-			const updatedNeedsRefresh = {...needsRefresh}
-			updatedNeedsRefresh[repo] = false
-			setNeedsRefresh(updatedNeedsRefresh)
-
-			const updatedSavedContexts = {...savedContexts}
-			updatedSavedContexts[repo] = {
-				id: savedContexts[repo]?.id || 0,
-				githubUrl: repo,
-				projectContext: formattedContext,
-				metadataFileType: targetMetadataFile || '',
-				createdAt: savedContexts[repo]?.createdAt || new Date().toISOString(),
-				updatedAt: new Date().toISOString()
-			}
-			setSavedContexts(updatedSavedContexts)
-		} catch (error) {
-			console.error('Error saving project context:', error)
-		}
-
-		return formattedContext
-	}
-
-	const generateContext = async () => {
-		setLoading(true)
-		try {
-			const validRepos = selectedRepos.filter(repo => repo.trim() !== '')
-			if (validRepos.length === 0) {
-				console.error('At least one repository is required')
-				return
+				// Update local state
+				setNeedsRefresh(false)
+				setSavedContext({
+					id: savedContext?.id || 0,
+					githubUrl: selectedRepo,
+					projectContext: formattedContext,
+					metadataFileType: targetMetadataFile || '',
+					createdAt: savedContext?.createdAt || new Date().toISOString(),
+					updatedAt: new Date().toISOString()
+				})
+			} catch (error) {
+				console.error('Error saving project context:', error)
 			}
 
-			// Build context for each repository
-			const contextsPromises = validRepos.map(repo => generateContextForRepo(repo))
-
-			const contexts = await Promise.all(contextsPromises)
-			const fullContext = contexts.filter(c => c).join('\n\n---\n\n')
-
-			setProjectContext(fullContext)
-			console.log(fullContext)
-
+			setProjectContext(formattedContext)
 		} catch (error) {
 			console.error('Error generating project context:', error)
+			setError('Failed to generate project context')
 		} finally {
 			setLoading(false)
 		}
@@ -328,73 +301,51 @@ export default function ProjectContextGenerator() {
 			)}
 
 			<div className="space-y-4">
-				<h3 className="text-md font-medium">Select GitHub Repositories</h3>
+				<h3 className="text-md font-medium">Select GitHub Repository</h3>
 
-				{selectedRepos.length === 0 && (
-					<Button variant="outline" onClick={() => setSelectedRepos([''])}>
-						Add Repository
-					</Button>
-				)}
+				<div className="flex items-center gap-2">
+					{isLoadingRepos ? (
+						<div className="flex items-center gap-2 h-10 px-3 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 flex-1">
+							<Loader2 className="h-4 w-4 animate-spin text-neutral-500" />
+							<span className="text-neutral-500">Loading repositories...</span>
+						</div>
+					) : (
+						<div className="flex-1 flex items-center gap-2">
+							<Select
+								value={selectedRepo}
+								onValueChange={updateSelectedRepo}
+								disabled={isLoadingRepos || repositories.length === 0}
+							>
+								<SelectTrigger className="w-full">
+									<SelectValue placeholder="Select a repository" />
+								</SelectTrigger>
+								<SelectContent>
+									{repositories.map(repo => (
+										<SelectItem key={repo.id} value={repo.full_name}>
+											{repo.full_name}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
 
-				{selectedRepos.map((selectedRepo, index) => (
-					<div key={index} className="flex items-center gap-2">
-						{isLoadingRepos ? (
-							<div className="flex items-center gap-2 h-10 px-3 text-sm rounded-md border border-neutral-200 dark:border-neutral-800 flex-1">
-								<Loader2 className="h-4 w-4 animate-spin text-neutral-500" />
-								<span className="text-neutral-500">Loading repositories...</span>
-							</div>
-						) : (
-							<div className="flex-1 flex items-center gap-2">
-								<Select
-									value={selectedRepo}
-									onValueChange={(value) => updateSelectedRepo(index, value)}
-									disabled={isLoadingRepos || repositories.length === 0}
+							{needsRefresh && (
+								<Button
+									variant="ghost"
+									size="icon"
+									onClick={refreshContext}
+									title="Refresh context (older than 7 days)"
 								>
-									<SelectTrigger className="w-full">
-										<SelectValue placeholder="Select a repository" />
-									</SelectTrigger>
-									<SelectContent>
-										{repositories.map(repo => (
-											<SelectItem key={repo.id} value={repo.full_name}>
-												{repo.full_name}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-
-								{needsRefresh[selectedRepo] && (
-									<Button
-										variant="ghost"
-										size="icon"
-										onClick={() => refreshContext(selectedRepo)}
-										title="Refresh context (older than 7 days)"
-									>
-										<RefreshCw className="h-4 w-4" />
-									</Button>
-								)}
-							</div>
-						)}
-
-						<Button
-							variant="outline"
-							onClick={() => removeRepository(index)}
-							disabled={selectedRepos.length === 1}
-						>
-							Remove
-						</Button>
-					</div>
-				))}
-
-				{selectedRepos.length > 0 && (
-					<Button variant="outline" onClick={addRepository}>
-						Add Another Repository
-					</Button>
-				)}
+									<RefreshCw className="h-4 w-4" />
+								</Button>
+							)}
+						</div>
+					)}
+				</div>
 			</div>
 
 			<Button
-				onClick={generateContext}
-				disabled={loading || selectedRepos.length === 0 || selectedRepos.some(r => !r)}
+				onClick={() => generateContext()}
+				disabled={loading || !selectedRepo}
 			>
 				{loading ? 'Generating...' : 'Generate Context'}
 			</Button>
