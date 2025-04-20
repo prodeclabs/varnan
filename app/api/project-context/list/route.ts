@@ -1,11 +1,22 @@
 import {NextResponse} from 'next/server'
 import {db} from '@/lib/db'
-import {projectContexts} from '@/lib/db/schema'
-import {desc} from 'drizzle-orm'
+import {projectContexts, userProjectContexts} from '@/lib/db/schema'
+import {cookies} from 'next/headers'
+import {eq, desc} from 'drizzle-orm'
 
 export async function GET() {
 	try {
-		// Fetch all project contexts without user restriction
+		const cookieStore = await cookies()
+		const userId = cookieStore.get('varnan_userId')?.value
+
+		if (!userId) {
+			return NextResponse.json(
+				{error: 'Authentication required'},
+				{status: 401}
+			)
+		}
+
+		// Fetch only project contexts associated with this user
 		const contexts = await db
 			.select({
 				id: projectContexts.id,
@@ -16,6 +27,11 @@ export async function GET() {
 				updatedAt: projectContexts.updatedAt
 			})
 			.from(projectContexts)
+			.innerJoin(
+				userProjectContexts,
+				eq(projectContexts.id, userProjectContexts.projectContextId)
+			)
+			.where(eq(userProjectContexts.userId, userId))
 			.orderBy(desc(projectContexts.updatedAt))
 
 		return NextResponse.json(contexts)

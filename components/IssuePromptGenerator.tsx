@@ -31,6 +31,14 @@ export default function IssuePromptGenerator() {
 			setIsLoading(true)
 			try {
 				const response = await fetch('/api/project-context/list')
+
+				if (response.status === 401) {
+					// Authentication error - handle gracefully
+					setProjectContexts([])
+					setError('Please sign in to access your project contexts')
+					return
+				}
+
 				if (!response.ok) {
 					throw new Error('Failed to fetch project contexts')
 				}
